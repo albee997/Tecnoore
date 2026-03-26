@@ -83,14 +83,20 @@
     transition: transform 0.2s cubic-bezier(0.4,0,0.2,1);
   }
   .toggle-pill.on .toggle-knob { transform: translateX(22px); }
+  html {
+    height: 100%;
+    overflow: hidden;
+  }
   body {
     font-family: -apple-system, 'SF Pro Rounded', 'SF Pro Display', 'Helvetica Neue', 'Segoe UI', sans-serif;
     background: var(--bg);
     color: var(--text);
     font-size: 15px;
-    min-height: 100vh;
-    overflow-x: hidden;
-    position: relative;
+    height: 100%;
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    touch-action: pan-y;
   }
 
   /* ===== HEADER ===== */
@@ -107,7 +113,7 @@
   }
   .header-left { display: flex; flex-direction: column; gap: 2px; }
   .header-greeting { font-size: 12px; color: var(--text-hint); font-weight: 400; letter-spacing: 0.3px; }
-  .header-name { font-size: 21px; font-weight: 700; letter-spacing: -0.5px; color: var(--text); }
+  .header-name { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
   .logo { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; color: var(--text-sec); }
   .logo span { color: #1560e8; }
   .employee-badge { display: none; }
@@ -128,7 +134,7 @@
   .btn-primary:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
 
   /* ===== PAGES ===== */
-  .pages-container { width: 100%; overflow: hidden; padding-bottom: 68px; }
+  .pages-container { width: 100%; overflow: hidden; height: calc(100vh - var(--header-h, 80px) - 58px); }
   .pages-slider { display: flex; transition: transform 0.38s cubic-bezier(0.4,0,0.2,1); will-change: transform; }
   .page { min-width: 100%; width: 100%; padding: 16px 16px 20px; }
 
@@ -1656,7 +1662,6 @@ function renderCalendar(){
 }
 
 function fitCalendarCells(){
-  // Calculate available height and set cell height so calendar fits without scrolling
   requestAnimationFrame(()=>{
     const panel=document.getElementById('cal-panel-1');
     if(!panel) return;
@@ -1666,37 +1671,27 @@ function fitCalendarCells(){
     const calGridHeader=panel.querySelector('.cal-grid-header');
     if(!header||!navTabs||!calHeader||!calGridHeader) return;
 
-    const totalH=window.innerHeight;
     const headerH=header.offsetHeight;
+    // Update CSS variable for pages-container height
+    document.documentElement.style.setProperty('--header-h', headerH+'px');
+
     const navH=navTabs.offsetHeight;
     const calHeadH=calHeader.offsetHeight;
     const calGridHeadH=calGridHeader.offsetHeight;
-    const padding=32; // top+bottom panel padding
+    const padding=36; // top+bottom panel padding
 
-    const available=totalH - headerH - navH - calHeadH - calGridHeadH - padding - 8;
+    const available=window.innerHeight - headerH - navH - calHeadH - calGridHeadH - padding;
 
-    // Count rows in the grid
     const grid=panel.querySelector('.cal-grid');
     if(!grid) return;
-    const cells=grid.querySelectorAll('.cal-cell:not(.other-month)');
-    if(!cells.length) return;
-    // Figure out how many rows we have
-    const firstTop=cells[0].getBoundingClientRect().top;
-    let rows=1;
-    cells.forEach(cell=>{
-      if(cell.getBoundingClientRect().top > firstTop + 10) rows++;
-    });
-    // Also count other-month cells
     const allCells=grid.querySelectorAll('.cal-cell');
-    // Get actual row count from grid
-    const gridStyle=window.getComputedStyle(grid);
-    const gridRowCount = Math.ceil(allCells.length / 7);
+    if(!allCells.length) return;
+    const gridRowCount=Math.ceil(allCells.length/7);
 
     const gap=4;
     const cellH=Math.floor((available - (gridRowCount-1)*gap) / gridRowCount);
-    const finalH=Math.max(60, Math.min(cellH, 130));
+    const finalH=Math.max(58, Math.min(cellH, 140));
 
-    // Apply to all cal-grids
     document.querySelectorAll('.cal-grid .cal-cell').forEach(el=>{
       el.style.height=finalH+'px';
       el.style.minHeight=finalH+'px';
@@ -3004,6 +2999,7 @@ setupCalCarouselTouch();
 setupListCarouselTouch();
 switchTab(0); // sets FAB visible, renders today page, correct tab state
 checkBackupReminder();
+window.addEventListener('resize', ()=>{ if(currentTab===1) fitCalendarCells(); });
 
 // ── back-swipe gesture (edge swipe from left OR right = close panel) ──
 (function(){
