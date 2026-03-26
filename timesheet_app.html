@@ -1917,7 +1917,15 @@ function setClientHours(key,i,h){
   d.clients[i].hours=h;
   state.data[key]=d;
   persist();
-  // Update only the summary strip to avoid losing focus on inputs
+  // Update only the hour buttons in this card to show correct selection
+  const card=document.getElementById('client-card-'+i);
+  if(card){
+    card.querySelectorAll('.hour-btn').forEach(btn=>{
+      const v=parseFloat(btn.textContent);
+      btn.classList.toggle('selected', v===h);
+    });
+  }
+  // Update summary strip
   updateDaySummary(key);
 }
 
