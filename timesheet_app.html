@@ -83,20 +83,14 @@
     transition: transform 0.2s cubic-bezier(0.4,0,0.2,1);
   }
   .toggle-pill.on .toggle-knob { transform: translateX(22px); }
-  html {
-    height: 100%;
-    overflow: hidden;
-  }
   body {
     font-family: -apple-system, 'SF Pro Rounded', 'SF Pro Display', 'Helvetica Neue', 'Segoe UI', sans-serif;
     background: var(--bg);
     color: var(--text);
     font-size: 15px;
-    height: 100%;
-    overflow: hidden;
-    position: fixed;
-    width: 100%;
-    touch-action: pan-y;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
   }
 
   /* ===== HEADER ===== */
@@ -134,7 +128,7 @@
   .btn-primary:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
 
   /* ===== PAGES ===== */
-  .pages-container { width: 100%; overflow: hidden; height: calc(100vh - var(--header-h, 80px) - 58px); }
+  .pages-container { width: 100%; overflow: hidden; padding-bottom: 68px; }
   .pages-slider { display: flex; transition: transform 0.38s cubic-bezier(0.4,0,0.2,1); will-change: transform; }
   .page { min-width: 100%; width: 100%; padding: 16px 16px 20px; }
 
@@ -1301,6 +1295,18 @@ function switchTab(idx) {
   document.getElementById('slider').style.transform = `translateX(-${idx*100}%)`;
   document.getElementById('month-nav-btns').style.display = idx===1 ? 'flex' : 'none';
   document.getElementById('fab-btn').classList.toggle('hidden', idx!==0);
+
+  // Lock scroll only on month tab, restore on others
+  if(idx===1){
+    document.body.style.overflow='hidden';
+    document.body.style.position='fixed';
+    document.body.style.width='100%';
+  } else {
+    document.body.style.overflow='';
+    document.body.style.position='';
+    document.body.style.width='';
+  }
+
   if(idx===0) renderTodayPage();
   if(idx===1) renderCalendar();
   if(idx===2){ listViewYear=state.currentYear; listViewMonth=state.currentMonth; renderList(); }
