@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TimeSheet</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f8f7f4;
+    --surface: #fff;
+    --border: rgba(0,0,0,0.10);
+    --border-med: rgba(0,0,0,0.18);
+    --text: #1a1a18;
+    --text-sec: #6b6b66;
+    --text-hint: #9b9b94;
+    --accent: #1D9E75;
+    --accent-light: #E1F5EE;
+    --accent-dark: #0F6E56;
+    --danger: #D85A30;
+    --danger-light: #FAECE7;
+    --warning: #BA7517;
+    --warning-light: #FAEEDA;
+    --info: #185FA5;
+    --info-light: #E6F1FB;
+    --purple: #534AB7;
+    --purple-light: #EEEDFE;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  body {
+    font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .header {
+    background: var(--surface);
+    border-bottom: 0.5px solid var(--border);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-left { display: flex; align-items: center; gap: 10px; }
+  .logo { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
+  .logo span { color: var(--accent); }
+  .employee-badge {
+    background: var(--accent-light);
+    color: var(--accent-dark);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+  .header-actions { display: flex; gap: 8px; }
+  .btn-sm {
+    padding: 7px 14px;
+    border-radius: var(--radius-sm);
+    border: 0.5px solid var(--border-med);
+    background: var(--surface);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    transition: all 0.15s;
+  }
+  .btn-sm:hover { background: var(--bg); }
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+  .btn-primary:hover { background: var(--accent-dark); }
+
+  .pages-container { width: 100%; overflow: hidden; }
+  .pages-slider {
+    display: flex;
+    transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
+    will-change: transform;
+  }
+  .page { min-width: 100%; width: 100%; padding: 20px; }
+
+  .nav-tabs {
+    display: flex;
+    gap: 4px;
+    background: rgba(0,0,0,0.06);
+    padding: 3px;
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+  }
+  .nav-tab {
+    flex: 1;
+    text-align: center;
+    padding: 8px 4px;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: var(--text-sec);
+    border: none;
+    background: transparent;
+  }
+  .nav-tab.active {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  }
+
+  .cal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .cal-month { font-size: 19px; font-weight: 600; letter-spacing: -0.3px; }
+  .cal-nav { display: flex; gap: 6px; }
+  .cal-nav-btn {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    border: 0.5px solid var(--border-med);
+    background: var(--surface);
+    cursor: pointer;
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .cal-nav-btn:hover { background: var(--bg); }
+
+  .cal-grid-header {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+    margin-bottom: 4px;
+  }
+  .cal-day-name {
+    text-align: center;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-hint);
+    padding: 4px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+  }
+  .cal-cell {
+    min-height: 80px;
+    background: var(--surface);
+    border-radius: var(--radius-sm);
+    border: 0.5px solid var(--border);
+    padding: 6px;
+    cursor: pointer;
+    transition: all 0.12s;
+    position: relative;
+    overflow: hidden;
+  }
+  .cal-cell:hover { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(29,158,117,0.12); }
+  .cal-cell.today { border-color: var(--accent); }
+  .cal-cell.weekend { background: #fafaf8; }
+  .cal-cell.holiday { background: #fafaf8; }
+  .cal-cell.other-month { opacity: 0.35; pointer-events: none; }
+  .cal-cell.has-data { border-color: var(--accent); }
+
+  .cal-date { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .cal-date.today-num {
+    background: var(--accent);
+    color: white;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+  }
+  .cal-preview { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
+  .cal-chip {
+    font-size: 10px;
+    font-weight: 500;
+    padding: 1px 5px;
+    border-radius: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+  .chip-client { background: var(--info-light); color: var(--info); }
+  .chip-ufficio { background: var(--accent-light); color: var(--accent-dark); }
+  .chip-ferie { background: var(--warning-light); color: var(--warning); }
+  .chip-malattia { background: var(--danger-light); color: var(--danger); }
+  .chip-straord { background: var(--purple-light); color: var(--purple); }
+  .cal-date-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2px;
+  }
+  .cal-hours-badge {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--accent-dark);
+    background: var(--accent-light);
+    padding: 1px 5px;
+    border-radius: 4px;
+    line-height: 1.4;
+    flex-shrink: 0;
+  }
+
+  .detail-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: flex-end;
+    background: rgba(0,0,0,0.35);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .detail-panel.open { opacity: 1; pointer-events: all; }
+  .detail-sheet {
+    width: 100%;
+    max-height: 92vh;
+    background: var(--surface);
+    border-radius: 20px 20px 0 0;
+    padding: 0;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+    display: flex;
+    flex-direction: column;
+  }
+  .detail-panel.open .detail-sheet { transform: translateY(0); }
+  .sheet-handle {
+    width: 38px; height: 4px;
+    background: var(--border-med);
+    border-radius: 2px;
+    margin: 10px auto 4px;
+    flex-shrink: 0;
+  }
+  .sheet-header {
+    padding: 8px 20px 12px;
+    border-bottom: 0.5px solid var(--border);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .sheet-title { font-size: 17px; font-weight: 600; letter-spacing: -0.2px; }
+  .sheet-close {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-sec);
+  }
+  .sheet-body { overflow-y: auto; padding: 16px 20px 24px; flex: 1; }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    color: var(--text-hint);
+    margin-bottom: 10px;
+  }
+  .client-card {
+    background: var(--bg);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 10px;
+    border: 0.5px solid var(--border);
+  }
+  .client-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .client-num {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-sec);
+    background: var(--surface);
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 0.5px solid var(--border);
+  }
+  .remove-btn {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    border: none;
+    background: var(--danger-light);
+    color: var(--danger);
+    cursor: pointer;
+    font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .field-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .field-label { font-size: 12px; color: var(--text-sec); font-weight: 500; min-width: 70px; }
+  .client-commessa-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .client-commessa-row .field-block { flex: 1; min-width: 0; }
+  .client-commessa-row .commessa-block { flex: 0 0 36%; }
+  .field-block-label { font-size: 11px; font-weight: 600; color: var(--text-hint); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .activity-wrapper { position: relative; margin-bottom: 8px; }
+  .activity-suggestions {
+    position: absolute;
+    top: 100%; left: 0; right: 0;
+    background: var(--surface);
+    border: 0.5px solid var(--border-med);
+    border-top: none;
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+    z-index: 50;
+    max-height: 150px;
+    overflow-y: auto;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  .activity-suggestion-item {
+    padding: 9px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    border-bottom: 0.5px solid var(--border);
+    color: var(--text);
+    transition: background 0.1s;
+  }
+  .activity-suggestion-item:last-child { border-bottom: none; }
+  .activity-suggestion-item:active, .activity-suggestion-item.highlighted { background: var(--accent-light); color: var(--accent-dark); }
+  .field-input {
+    flex: 1;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    border: 0.5px solid var(--border-med);
+    font-size: 13px;
+    font-family: inherit;
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .field-input:focus { border-color: var(--accent); }
+
+  .hours-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 4px;
+    margin-top: 4px;
+  }
+  .hour-btn {
+    padding: 7px 3px;
+    text-align: center;
+    border-radius: var(--radius-sm);
+    border: 0.5px solid var(--border);
+    background: var(--surface);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.12s;
+    color: var(--text);
+  }
+  .hour-btn:hover { background: var(--accent-light); border-color: var(--accent); color: var(--accent-dark); }
+  .hour-btn.selected { background: var(--accent); color: white; border-color: var(--accent); }
+
+  .summary-strip {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    margin: 14px 0;
+    display: flex;
+    gap: 0;
+    flex-wrap: wrap;
+  }
+  .sum-item {
+    flex: 1;
+    min-width: 80px;
+    text-align: center;
+    padding: 4px 8px;
+    border-right: 0.5px solid var(--border);
+  }
+  .sum-item:last-child { border-right: none; }
+  .sum-val { font-size: 17px; font-weight: 600; }
+  .sum-lbl { font-size: 10px; color: var(--text-hint); font-weight: 500; text-transform: uppercase; letter-spacing: 0.4px; margin-top: 2px; }
+
+  .extra-row { display: flex; gap: 8px; margin: 12px 0; }
+  .extra-chip {
+    flex: 1;
+    padding: 8px 4px;
+    text-align: center;
+    border-radius: var(--radius-sm);
+    border: 0.5px solid var(--border);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.12s;
+    background: var(--surface);
+    color: var(--text-sec);
+  }
+  .extra-chip:hover { opacity: 0.8; }
+  .extra-chip.chip-active-ferie { background: var(--warning-light); border-color: var(--warning); color: var(--warning); }
+  .extra-chip.chip-active-malattia { background: var(--danger-light); border-color: var(--danger); color: var(--danger); }
+  .extra-chip.chip-active-straord { background: var(--purple-light); border-color: var(--purple); color: var(--purple); }
+  .extra-chip.chip-active-ufficio { background: var(--accent-light); border-color: var(--accent); color: var(--accent-dark); }
+
+  .extra-hours-input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    margin-top: 8px;
+  }
+  .extra-hours-input input {
+    width: 60px;
+    padding: 6px 8px;
+    border-radius: 5px;
+    border: 0.5px solid var(--border-med);
+    font-size: 14px;
+    text-align: center;
+    font-family: inherit;
+    color: var(--text);
+    background: var(--bg);
+  }
+
+  .expense-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 10px;
+  }
+  .expense-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .expense-block .field-label { display: block; margin-bottom: 4px; font-size: 12px; }
+
+  .add-client-btn {
+    width: 100%;
+    padding: 10px;
+    border-radius: var(--radius);
+    border: 1px dashed var(--accent);
+    background: transparent;
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 6px;
+    transition: background 0.15s;
+  }
+  .add-client-btn:hover { background: var(--accent-light); }
+
+  .save-btn {
+    width: 100%;
+    padding: 14px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 16px;
+    transition: background 0.15s;
+  }
+  .save-btn:hover { background: var(--accent-dark); }
+
+  .month-summary-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border);
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  .summary-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .metric-box {
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    padding: 10px;
+    text-align: center;
+  }
+  .metric-val { font-size: 20px; font-weight: 600; }
+  .metric-lbl { font-size: 10px; color: var(--text-hint); font-weight: 500; text-transform: uppercase; margin-top: 2px; letter-spacing: 0.4px; }
+
+  .day-row {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: border-color 0.12s;
+  }
+  .day-row:hover { border-color: var(--accent); }
+  .day-row-date { min-width: 36px; text-align: center; }
+  .day-num { font-size: 15px; font-weight: 600; }
+  .day-name { font-size: 10px; color: var(--text-hint); font-weight: 500; text-transform: uppercase; }
+  .day-row-info { flex: 1; }
+  .day-row-clients { font-size: 12px; color: var(--text-sec); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .day-row-tags { display: flex; gap: 4px; margin-top: 3px; flex-wrap: wrap; }
+  .tag { font-size: 10px; padding: 1px 6px; border-radius: 4px; font-weight: 500; }
+  .tag-ord { background: var(--accent-light); color: var(--accent-dark); }
+  .tag-str { background: var(--purple-light); color: var(--purple); }
+  .tag-fer { background: var(--warning-light); color: var(--warning); }
+  .tag-mal { background: var(--danger-light); color: var(--danger); }
+  .day-row-hours { font-size: 14px; font-weight: 600; color: var(--text-sec); white-space: nowrap; }
+
+  .settings-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+  .settings-row {
+    display: flex;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 0.5px solid var(--border);
+    gap: 12px;
+  }
+  .settings-row:last-child { border-bottom: none; }
+  .settings-row label { font-size: 14px; flex: 1; }
+  .settings-row input[type=text] {
+    padding: 7px 10px;
+    border-radius: var(--radius-sm);
+    border: 0.5px solid var(--border-med);
+    font-size: 14px;
+    font-family: inherit;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    width: 160px;
+  }
+  .settings-row input[type=text]:focus { border-color: var(--accent); }
+
+  .export-btn {
+    width: 100%;
+    padding: 14px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background 0.15s;
+  }
+  .export-btn:hover { background: var(--accent-dark); }
+
+  .holiday-dot { color: var(--danger); font-size: 9px; position: absolute; top: 4px; right: 5px; }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text-hint); }
+  .empty-icon { font-size: 36px; margin-bottom: 10px; }
+  .empty-text { font-size: 14px; }
+
+  /* ===== TODAY PAGE ===== */
+  .today-header {
+    background: linear-gradient(135deg, #1a6aaa 0%, #1D9E75 100%);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 14px;
+    color: white;
+  }
+  .today-greeting { font-size: 14px; opacity: 0.85; margin-bottom: 2px; }
+  .today-name { font-size: 22px; font-weight: 700; letter-spacing: -0.4px; margin-bottom: 16px; }
+  .today-date-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .today-date-nav-btn {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .today-date-nav-btn:hover { background: rgba(255,255,255,0.3); }
+  .today-date-center { text-align: center; }
+  .today-date-label { font-size: 16px; font-weight: 600; }
+  .today-back-today {
+    font-size: 11px;
+    opacity: 0.75;
+    cursor: pointer;
+    margin-top: 2px;
+  }
+
+  .today-stats-strip {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    display: flex;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .today-stat {
+    flex: 1;
+    text-align: center;
+    padding: 14px 8px;
+    border-right: 0.5px solid var(--border);
+  }
+  .today-stat:last-child { border-right: none; }
+  .today-stat-val { font-size: 20px; font-weight: 700; }
+  .today-stat-lbl { font-size: 10px; color: var(--text-hint); font-weight: 500; text-transform: uppercase; letter-spacing: 0.4px; margin-top: 3px; }
+
+  .today-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .today-section-title { font-size: 15px; font-weight: 600; }
+  .today-section-link { font-size: 13px; color: var(--accent); font-weight: 500; cursor: pointer; }
+
+  .work-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    cursor: pointer;
+    transition: border-color 0.12s;
+  }
+  .work-card:hover { border-color: var(--accent); }
+  .work-card-info { flex: 1; min-width: 0; }
+  .work-card-name { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+  .work-card-sub { font-size: 12px; color: var(--text-sec); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .work-card-expense { font-size: 12px; color: var(--warning); margin-top: 4px; font-weight: 500; }
+  .work-card-hours {
+    background: var(--info-light);
+    color: var(--info);
+    font-size: 13px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .work-card-hours.straord { background: var(--purple-light); color: var(--purple); }
+
+  .today-extras-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .today-extra-badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .fab {
+    position: fixed;
+    bottom: 28px;
+    right: 22px;
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: white;
+    border: none;
+    font-size: 26px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 16px rgba(29,158,117,0.4);
+    transition: background 0.15s, transform 0.12s;
+    z-index: 90;
+  }
+  .fab:hover { background: var(--accent-dark); }
+  .fab:active { transform: scale(0.93); }
+  .fab.hidden { display: none; }
+
+  .today-empty {
+    text-align: center;
+    padding: 30px 20px;
+    color: var(--text-hint);
+  }
+  .today-empty-icon { font-size: 40px; margin-bottom: 10px; }
+  .today-empty-text { font-size: 14px; line-height: 1.5; }
+
+  .metric-box-clickable {
+    cursor: pointer;
+    transition: transform 0.12s, box-shadow 0.12s;
+    position: relative;
+  }
+  .metric-box-clickable:hover { transform: scale(1.03); }
+  .metric-box-clickable:active { transform: scale(0.97); }
+  .metric-box-clickable::after {
+    content: '›';
+    position: absolute;
+    bottom: 5px; right: 7px;
+    font-size: 11px;
+    color: var(--text-hint);
+  }
+
+  .expense-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    display: flex;
+    align-items: flex-end;
+    background: rgba(0,0,0,0.35);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .expense-panel.open { opacity: 1; pointer-events: all; }
+  .expense-sheet {
+    width: 100%;
+    max-height: 88vh;
+    background: var(--surface);
+    border-radius: 20px 20px 0 0;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+    display: flex;
+    flex-direction: column;
+  }
+  .expense-panel.open .expense-sheet { transform: translateY(0); }
+
+  .exp-row {
+    display: flex;
+    align-items: center;
+    padding: 11px 16px;
+    border-bottom: 0.5px solid var(--border);
+    gap: 12px;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .exp-row:last-child { border-bottom: none; }
+  .exp-row:hover { background: var(--bg); }
+  .exp-date-col { min-width: 38px; text-align: center; }
+  .exp-day-num { font-size: 15px; font-weight: 600; }
+  .exp-day-name { font-size: 10px; color: var(--text-hint); font-weight: 500; text-transform: uppercase; }
+  .exp-info { flex: 1; }
+  .exp-note { font-size: 12px; color: var(--text-sec); margin-top: 1px; }
+  .exp-amount { font-size: 15px; font-weight: 600; }
+  .exp-total-row {
+    padding: 12px 16px;
+    background: var(--bg);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 0.5px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">Time<span>Sheet</span></div>
+    <div class="employee-badge" id="employee-badge">Dipendente</div>
+  </div>
+  <div class="header-actions" id="month-nav-btns">
+    <button class="btn-sm" onclick="prevMonth()">‹ Mese</button>
+    <button class="btn-sm btn-primary" onclick="goToToday()">Oggi</button>
+    <button class="btn-sm" onclick="nextMonth()">Mese ›</button>
+  </div>
+</div>
+
+<div style="padding: 14px 20px 0;">
+  <div class="nav-tabs">
+    <button class="nav-tab active" id="tab-oggi" onclick="switchTab(0)">☀️ Oggi</button>
+    <button class="nav-tab" id="tab-cal" onclick="switchTab(1)">📅 Mese</button>
+    <button class="nav-tab" id="tab-list" onclick="switchTab(2)">📋 Riepilogo</button>
+    <button class="nav-tab" id="tab-set" onclick="switchTab(3)">⚙️ Impost.</button>
+  </div>
+</div>
+
+<div class="pages-container">
+  <div class="pages-slider" id="slider">
+
+    <!-- PAGE 0: TODAY -->
+    <div class="page" id="page-oggi" style="padding-bottom: 90px;">
+      <div class="today-header">
+        <div class="today-greeting">Ciao,</div>
+        <div class="today-name" id="today-emp-name">Mario Rossi</div>
+        <div class="today-date-nav">
+          <button class="today-date-nav-btn" onclick="todayNavDay(-1)">‹</button>
+          <div class="today-date-center">
+            <div class="today-date-label" id="today-date-label">Oggi</div>
+            <div class="today-back-today" id="today-back-btn" onclick="todayGoToday()" style="display:none;">Tocca per tornare ad oggi</div>
+          </div>
+          <button class="today-date-nav-btn" onclick="todayNavDay(1)">›</button>
+        </div>
+      </div>
+      <div class="today-stats-strip">
+        <div class="today-stat"><div class="today-stat-val" id="td-ord" style="color:var(--accent);">-</div><div class="today-stat-lbl">Ordinarie</div></div>
+        <div class="today-stat"><div class="today-stat-val" id="td-str" style="color:var(--purple);">-</div><div class="today-stat-lbl">Straord.</div></div>
+        <div class="today-stat"><div class="today-stat-val" id="td-exp" style="color:var(--warning);">-</div><div class="today-stat-lbl">Spese</div></div>
+      </div>
+      <div class="today-section-header">
+        <div class="today-section-title" id="td-work-title">Voci lavorative</div>
+        <div class="today-section-link" onclick="openTodayEdit()">Modifica</div>
+      </div>
+      <div id="today-work-list"></div>
+    </div>
+
+    <!-- PAGE 1: CALENDAR -->
+    <div class="page" id="page-cal">
+      <div class="cal-header">
+        <div class="cal-month" id="cal-month-title">Marzo 2025</div>
+        <div style="font-size: 12px; color: var(--text-hint);" id="cal-stats"></div>
+      </div>
+      <div class="cal-grid-header">
+        <div class="cal-day-name">Lun</div><div class="cal-day-name">Mar</div>
+        <div class="cal-day-name">Mer</div><div class="cal-day-name">Gio</div>
+        <div class="cal-day-name">Ven</div>
+        <div class="cal-day-name" style="color: var(--danger);">Sab</div>
+        <div class="cal-day-name" style="color: var(--danger);">Dom</div>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>
+
+    <div class="page" id="page-list">
+      <div class="month-summary-card">
+        <div style="font-size: 15px; font-weight: 600;" id="summary-month-title">Riepilogo</div>
+        <div class="summary-metrics">
+          <div class="metric-box"><div class="metric-val" id="metric-ord" style="color: var(--accent);">0</div><div class="metric-lbl">Ore Ord.</div></div>
+          <div class="metric-box"><div class="metric-val" id="metric-str" style="color: var(--purple);">0</div><div class="metric-lbl">Straord.</div></div>
+          <div class="metric-box metric-box-clickable" onclick="openExpensePanel('pasti')" title="Vedi dettaglio pasti"><div class="metric-val" id="metric-pasti" style="color: var(--info);">€0</div><div class="metric-lbl">Pasti</div></div>
+        </div>
+        <div style="display:flex; gap:8px; margin-top: 10px;">
+          <div class="metric-box" style="flex:1;"><div class="metric-val" id="metric-fer" style="color: var(--warning); font-size:16px;">0h</div><div class="metric-lbl">Ferie</div></div>
+          <div class="metric-box" style="flex:1;"><div class="metric-val" id="metric-mal" style="color: var(--danger); font-size:16px;">0h</div><div class="metric-lbl">Malattia</div></div>
+          <div class="metric-box metric-box-clickable" style="flex:1;" onclick="openExpensePanel('spese')" title="Vedi dettaglio spese"><div class="metric-val" id="metric-exp" style="color: var(--warning); font-size:16px;">€0</div><div class="metric-lbl">Altre Spese</div></div>
+        </div>
+      </div>
+      <div id="day-list"></div>
+    </div>
+
+    <div class="page" id="page-set">
+      <div style="font-size: 16px; font-weight: 600; margin-bottom: 14px;">Impostazioni</div>
+      <div class="settings-card">
+        <div class="settings-row">
+          <label>Nome dipendente</label>
+          <input type="text" id="emp-name" value="Mario Rossi" onchange="saveSettings()">
+        </div>
+        <div class="settings-row">
+          <label>Ore ordinarie/giorno</label>
+          <input type="text" id="daily-hours" value="8" onchange="saveSettings()">
+        </div>
+      </div>
+      <div style="font-size: 16px; font-weight: 600; margin: 18px 0 12px;">Festività <span style="font-size:12px;font-weight:400;color:var(--text-hint);">(anno corrente)</span></div>
+      <div class="settings-card" id="holidays-list"></div>
+      <button class="export-btn" onclick="exportExcel()"><span>⬇</span> Esporta Excel del mese</button>
+      <div style="font-size: 12px; color: var(--text-hint); text-align: center; margin-top: 8px;">File separato per dipendente • <span id="export-filename"></span></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="detail-panel" id="detail-panel" onclick="closePanel(event)">
+  <div class="detail-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <div class="sheet-title" id="sheet-title">Lunedì 10 Marzo</div>
+      <button class="sheet-close" onclick="closeDetailPanel()">✕</button>
+    </div>
+    <div class="sheet-body" id="sheet-body"></div>
+  </div>
+</div>
+
+<button class="fab" id="fab-btn" onclick="openTodayEdit()">+</button>
+
+<div class="expense-panel" id="expense-panel" onclick="closeExpensePanelBg(event)">
+  <div class="expense-sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <div class="sheet-title" id="expense-panel-title">Dettaglio Spese</div>
+      <button class="sheet-close" onclick="closeExpensePanel()">✕</button>
+    </div>
+    <div style="overflow-y:auto; flex:1;" id="expense-panel-body"></div>
+    <div class="exp-total-row" id="expense-panel-footer"></div>
+  </div>
+</div>
+
+<script>
+const HOUR_OPTIONS = [0.5,1,1.5,2,2.5,3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10,10.5,11,11.5,12];
+const IT_HOLIDAYS_2025 = ['2025-01-01','2025-01-06','2025-04-18','2025-04-21','2025-04-25','2025-05-01','2025-06-02','2025-08-15','2025-11-01','2025-12-08','2025-12-25','2025-12-26'];
+const IT_HOLIDAYS_2026 = ['2026-01-01','2026-01-06','2026-04-03','2026-04-06','2026-04-25','2026-05-01','2026-06-02','2026-08-15','2026-11-01','2026-12-08','2026-12-25','2026-12-26'];
+
+let state = {
+  currentYear: new Date().getFullYear(),
+  currentMonth: new Date().getMonth(),
+  data: {},
+  empName: 'Mario Rossi',
+  dailyHours: 8,
+};
+
+try {
+  const saved = localStorage.getItem('ts_data');
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    state.data = parsed.data || {};
+    state.empName = parsed.empName || 'Mario Rossi';
+    state.dailyHours = parsed.dailyHours || 8;
+  }
+} catch(e) {}
+
+function persist() {
+  try { localStorage.setItem('ts_data', JSON.stringify({data: state.data, empName: state.empName, dailyHours: state.dailyHours})); } catch(e) {}
+}
+
+const MONTHS_IT = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+const DAYS_IT_SHORT = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
+const DAYS_IT_LONG = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
+
+function dateKey(y,m,d) { return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+function parseKey(k) { const p=k.split('-'); return {y:+p[0],m:+p[1]-1,d:+p[2]}; }
+function isHoliday(k) { return [...IT_HOLIDAYS_2025,...IT_HOLIDAYS_2026].includes(k); }
+function isAllStraord(k) {
+  const [ky,km,kd] = k.split('-');
+  const dw = new Date(+ky,+km-1,+kd).getDay();
+  return dw===0||dw===6||isHoliday(k);
+}
+
+function getDayData(key) {
+  return state.data[key] || {clients:[], extras:{type:null,hours:0}, pasti:0, pasti_note:'', spese:0, spese_note:''};
+}
+
+function calcDay(key) {
+  const d = getDayData(key);
+  const totalClientHours = d.clients.reduce((s,c)=>s+(c.hours||0),0);
+  const allStraord = isAllStraord(key);
+  let ord=0, str=0, ferie=0, malattia=0, ufficio=0;
+  if (allStraord) {
+    str = totalClientHours;
+  } else {
+    const lim = state.dailyHours;
+    if (totalClientHours >= lim) {
+      ord = lim; str = totalClientHours - lim;
+    } else {
+      ord = totalClientHours;
+      if (d.extras.type==='straord') { str = d.extras.hours||0; }
+      else if (d.extras.type==='ferie') { ferie = d.extras.hours||0; }
+      else if (d.extras.type==='malattia') { malattia = d.extras.hours||0; }
+      else if (d.extras.type==='ufficio') { ufficio = d.extras.hours||0; ord = totalClientHours + ufficio; }
+    }
+  }
+  return {ord, str, ferie, malattia, ufficio, totalClientHours};
+}
+
+function getMonthStats() {
+  let totOrd=0,totStr=0,totFerie=0,totMal=0,totPasti=0,totSpese=0;
+  const prefix = `${state.currentYear}-${String(state.currentMonth+1).padStart(2,'0')}`;
+  Object.entries(state.data).forEach(([k,v])=>{
+    if(!k.startsWith(prefix)) return;
+    const c=calcDay(k);
+    totOrd+=c.ord; totStr+=c.str; totFerie+=c.ferie; totMal+=c.malattia;
+    totPasti+=(v.pasti||0); totSpese+=(v.spese||0);
+  });
+  return {totOrd,totStr,totFerie,totMal,totPasti,totSpese};
+}
+
+let currentTab = 0;
+let touchStartX = 0, touchStartY = 0;
+
+// today page state
+let todayViewKey = dateKey(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+
+function switchTab(idx) {
+  currentTab = idx;
+  document.querySelectorAll('.nav-tab').forEach((t,i)=>t.classList.toggle('active',i===idx));
+  document.getElementById('slider').style.transform = `translateX(-${idx*100}%)`;
+  // show month nav only on calendar tab
+  document.getElementById('month-nav-btns').style.display = idx===1 ? 'flex' : 'none';
+  // show FAB only on today tab
+  document.getElementById('fab-btn').classList.toggle('hidden', idx!==0);
+  if(idx===0) renderTodayPage();
+  if(idx===1) renderCalendar();
+  if(idx===2) renderList();
+  if(idx===3) renderSettings();
+}
+
+function todayNavDay(delta){
+  const {y,m,d}=parseKey(todayViewKey);
+  const dt=new Date(y,m,d+delta);
+  todayViewKey=dateKey(dt.getFullYear(),dt.getMonth(),dt.getDate());
+  renderTodayPage();
+}
+function todayGoToday(){
+  todayViewKey=dateKey(new Date().getFullYear(),new Date().getMonth(),new Date().getDate());
+  renderTodayPage();
+}
+function openTodayEdit(){
+  openDayPanel(todayViewKey);
+}
+
+function renderTodayPage(){
+  const key=todayViewKey;
+  const {y,m,d}=parseKey(key);
+  const dObj=new Date(y,m,d);
+  const todayKey=dateKey(new Date().getFullYear(),new Date().getMonth(),new Date().getDate());
+  const isToday=key===todayKey;
+  const allStraord=isAllStraord(key);
+
+  // header
+  document.getElementById('today-emp-name').textContent=state.empName;
+  const dowLong=DAYS_IT_LONG[dObj.getDay()];
+  document.getElementById('today-date-label').textContent=isToday?`Oggi, ${dowLong} ${d} ${MONTHS_IT[m]}`:`${dowLong} ${d} ${MONTHS_IT[m]} ${y}`;
+  document.getElementById('today-back-btn').style.display=isToday?'none':'block';
+
+  // stats
+  const dayData=getDayData(key);
+  const calc=calcDay(key);
+  const totalSpese=(dayData.pasti||0)+(dayData.spese||0);
+
+  document.getElementById('td-ord').textContent=allStraord?'—':(calc.ord>0?calc.ord+'h':'—');
+  document.getElementById('td-str').textContent=calc.str>0?calc.str+'h':(calc.ferie>0?'Ferie':(calc.malattia>0?'Mal.':'—'));
+  document.getElementById('td-exp').textContent=totalSpese>0?'€'+totalSpese.toFixed(2):'—';
+
+  // work list
+  const list=document.getElementById('today-work-list');
+  const totalWork=dayData.clients.length;
+  document.getElementById('td-work-title').textContent=`Voci lavorative${totalWork>0?' ('+totalWork+')':''}`;
+
+  if(totalWork===0 && !dayData.extras.type && !dayData.pasti && !dayData.spese){
+    list.innerHTML=`<div class="today-empty">
+      <div class="today-empty-icon">📋</div>
+      <div class="today-empty-text">Nessuna voce per questo giorno.<br>Tocca <strong>+</strong> per aggiungere.</div>
+    </div>`;
+    return;
+  }
+
+  let html='';
+
+  // extras badge
+  if(dayData.extras.type){
+    const badgeMap={
+      ferie:`<span class="today-extra-badge" style="background:var(--warning-light);color:var(--warning);">🌴 Ferie ${dayData.extras.hours||''}h</span>`,
+      malattia:`<span class="today-extra-badge" style="background:var(--danger-light);color:var(--danger);">🤒 Malattia ${dayData.extras.hours||''}h</span>`,
+      ufficio:`<span class="today-extra-badge" style="background:var(--accent-light);color:var(--accent-dark);">🏢 Ufficio ${dayData.extras.hours||''}h</span>`,
+      straord:`<span class="today-extra-badge" style="background:var(--purple-light);color:var(--purple);">⏰ Straord. ${dayData.extras.hours||''}h</span>`,
+    };
+    if(badgeMap[dayData.extras.type]) html+=`<div class="today-extras-row">${badgeMap[dayData.extras.type]}</div>`;
+  }
+
+  // work cards
+  dayData.clients.forEach((c,i)=>{
+    const hBadgeClass=allStraord?'straord':'';
+    const sub=[c.commessa?'Comm. '+c.commessa:'', c.attivita||''].filter(Boolean).join(' · ') || 'Commessa non specificata';
+    html+=`<div class="work-card" onclick="openDayPanel('${key}')">
+      <div class="work-card-info">
+        <div class="work-card-name">${c.name||'Cliente '+(i+1)}</div>
+        <div class="work-card-sub">${sub}</div>
+      </div>
+      ${c.hours>0?`<div class="work-card-hours ${hBadgeClass}">${c.hours}h</div>`:''}
+    </div>`;
+  });
+
+  // expenses summary
+  if(dayData.pasti||dayData.spese){
+    html+=`<div style="margin-top:6px;">`;
+    if(dayData.pasti) html+=`<div class="work-card" style="cursor:default;"><div class="work-card-info"><div class="work-card-name" style="font-size:13px;">🍽 Pasto</div>${dayData.pasti_note?`<div class="work-card-sub">${dayData.pasti_note}</div>`:''}</div><div style="font-size:14px;font-weight:700;color:var(--info);">€${(dayData.pasti).toFixed(2)}</div></div>`;
+    if(dayData.spese) html+=`<div class="work-card" style="cursor:default;"><div class="work-card-info"><div class="work-card-name" style="font-size:13px;">💳 Altre spese</div>${dayData.spese_note?`<div class="work-card-sub">${dayData.spese_note}</div>`:''}</div><div style="font-size:14px;font-weight:700;color:var(--warning);">€${(dayData.spese).toFixed(2)}</div></div>`;
+    html+=`</div>`;
+  }
+
+  list.innerHTML=html;
+}
+
+document.querySelector('.pages-container').addEventListener('touchstart', e=>{
+  touchStartX=e.touches[0].clientX; touchStartY=e.touches[0].clientY;
+},{passive:true});
+document.querySelector('.pages-container').addEventListener('touchend', e=>{
+  const dx=e.changedTouches[0].clientX-touchStartX;
+  const dy=e.changedTouches[0].clientY-touchStartY;
+  if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>50){
+    if(dx<0&&currentTab<3) switchTab(currentTab+1);
+    if(dx>0&&currentTab>0) switchTab(currentTab-1);
+  }
+},{passive:true});
+
+function renderCalendar() {
+  const y=state.currentYear, m=state.currentMonth;
+  document.getElementById('cal-month-title').textContent=`${MONTHS_IT[m]} ${y}`;
+  document.getElementById('summary-month-title').textContent=`Riepilogo ${MONTHS_IT[m]} ${y}`;
+  document.getElementById('employee-badge').textContent=state.empName;
+  const stats=getMonthStats();
+  document.getElementById('cal-stats').textContent=`${stats.totOrd}h ord • ${stats.totStr}h str`;
+  let startDow=new Date(y,m,1).getDay();
+  startDow=startDow===0?6:startDow-1;
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  const prevDays=new Date(y,m,0).getDate();
+  const today=new Date();
+  const grid=document.getElementById('cal-grid');
+  grid.innerHTML='';
+  for(let i=startDow-1;i>=0;i--){const c=document.createElement('div');c.className='cal-cell other-month';c.innerHTML=`<div class="cal-date">${prevDays-i}</div>`;grid.appendChild(c);}
+  for(let d=1;d<=daysInMonth;d++){
+    const key=dateKey(y,m,d);
+    const cell=document.createElement('div');
+    const dObj=new Date(y,m,d);
+    const dow=dObj.getDay();
+    const weekend=dow===0||dow===6;
+    const holiday=isHoliday(key);
+    const isToday=dObj.toDateString()===today.toDateString();
+    const dayData=getDayData(key);
+    const hasData=dayData.clients.length>0;
+    cell.className='cal-cell'+(weekend?' weekend':'')+(holiday?' holiday':'')+(hasData?' has-data':'');
+    const calc=calcDay(key);
+    const totalH=calc.totalClientHours+(calc.ufficio||0);
+    const hoursBadge=totalH>0?`<span class="cal-hours-badge">${totalH}h</span>`:'';
+    const dateNum=isToday?`<span class="cal-date today-num">${d}</span>`:`<span style="font-size:13px;font-weight:600;color:${(weekend||holiday)?'var(--danger)':'var(--text)'};">${d}</span>`;
+    const dateEl=`<div class="cal-date-row">${dateNum}${hoursBadge}</div>`;
+    let previewHtml='<div class="cal-preview">';
+    dayData.clients.slice(0,3).forEach(c=>{if(c.name)previewHtml+=`<div class="cal-chip chip-client">${c.name}</div>`;});
+    if(dayData.clients.length>3)previewHtml+=`<div class="cal-chip" style="background:var(--bg);color:var(--text-hint);">+${dayData.clients.length-3} altri</div>`;
+    if(dayData.extras.type==='ferie')previewHtml+=`<div class="cal-chip chip-ferie">Ferie</div>`;
+    if(dayData.extras.type==='malattia')previewHtml+=`<div class="cal-chip chip-malattia">Malattia</div>`;
+    if(dayData.extras.type==='ufficio')previewHtml+=`<div class="cal-chip chip-ufficio">Ufficio</div>`;
+    previewHtml+='</div>';
+    cell.innerHTML=dateEl+previewHtml+(holiday?`<div class="holiday-dot">★</div>`:'');
+    cell.onclick=()=>openDayPanel(key);
+    grid.appendChild(cell);
+  }
+  const totalCells=startDow+daysInMonth;
+  const remaining=(7-(totalCells%7))%7;
+  for(let d=1;d<=remaining;d++){const c=document.createElement('div');c.className='cal-cell other-month';c.innerHTML=`<div class="cal-date">${d}</div>`;grid.appendChild(c);}
+}
+
+function prevMonth(){if(state.currentMonth===0){state.currentMonth=11;state.currentYear--;}else state.currentMonth--;renderCalendar();renderList();}
+function nextMonth(){if(state.currentMonth===11){state.currentMonth=0;state.currentYear++;}else state.currentMonth++;renderCalendar();renderList();}
+function goToToday(){state.currentYear=new Date().getFullYear();state.currentMonth=new Date().getMonth();switchTab(0);}
+
+let editingKey=null;
+
+function openDayPanel(key){
+  editingKey=key;
+  const {y,m,d}=parseKey(key);
+  const dObj=new Date(y,m,d);
+  const dow=dObj.getDay();
+  const holiday=isHoliday(key);
+  const allStraord=isAllStraord(key);
+  document.getElementById('sheet-title').textContent=`${DAYS_IT_LONG[dow]} ${d} ${MONTHS_IT[m]}`+(holiday?' ★':'')+(allStraord?' (straord.)':'');
+  renderSheetBody(key);
+  document.getElementById('detail-panel').classList.add('open');
+}
+function closeDetailPanel(){document.getElementById('detail-panel').classList.remove('open');editingKey=null;}
+function closePanel(e){if(e.target===document.getElementById('detail-panel'))closeDetailPanel();}
+
+function renderSheetBody(key){
+  const dayData=getDayData(key);
+  const allStraord=isAllStraord(key);
+  const calc=calcDay(key);
+  const body=document.getElementById('sheet-body');
+  let html='';
+  html+=`<div class="section-label" style="margin-bottom:8px;">Lavori / Clienti</div>`;
+  html+=`<div id="clients-container">`;
+  if(dayData.clients.length===0)html+=`<div style="color:var(--text-hint);font-size:13px;text-align:center;padding:16px 0;">Nessun cliente aggiunto</div>`;
+  dayData.clients.forEach((c,i)=>{html+=renderClientCard(c,i,key);});
+  html+=`</div>`;
+  html+=`<button class="add-client-btn" onclick="addClient('${key}')">+ Aggiungi cliente / lavoro</button>`;
+  html+=`<div class="summary-strip" id="day-summary">`;
+  html+=`<div class="sum-item"><div class="sum-val" style="color:var(--accent);">${calc.totalClientHours}h</div><div class="sum-lbl">Clienti</div></div>`;
+  if(!allStraord){
+    html+=`<div class="sum-item"><div class="sum-val" style="color:var(--accent);">${calc.ord}h</div><div class="sum-lbl">Ordinarie</div></div>`;
+    html+=`<div class="sum-item"><div class="sum-val" style="color:var(--purple);">${calc.str}h</div><div class="sum-lbl">Straord.</div></div>`;
+  }else{
+    html+=`<div class="sum-item"><div class="sum-val" style="color:var(--purple);">${calc.totalClientHours}h</div><div class="sum-lbl">Tutte straord.</div></div>`;
+  }
+  html+=`</div>`;
+  if(!allStraord){
+    const totalH=calc.totalClientHours, lim=state.dailyHours;
+    if(totalH<lim){
+      html+=`<div class="section-label" style="margin-top:4px;">Ore mancanti (${lim-totalH}h da completare)</div>`;
+      html+=`<div class="extra-row" id="extra-type-row">`;
+      ['ufficio','ferie','malattia'].forEach(t=>{
+        const labels={ufficio:'🏢 Ufficio',ferie:'🌴 Ferie',malattia:'🤒 Malattia'};
+        const active=dayData.extras.type===t?`chip-active-${t}`:'';
+        html+=`<button class="extra-chip ${active}" onclick="setExtra('${key}','${t}')">${labels[t]}</button>`;
+      });
+      html+=`</div>`;
+      if(dayData.extras.type&&dayData.extras.type!=='ufficio'){
+        html+=`<div class="extra-hours-input"><span style="font-size:13px;color:var(--text-sec);">Ore ${dayData.extras.type}:</span><input type="number" min="0.5" max="12" step="0.5" value="${dayData.extras.hours||lim-totalH}" onchange="setExtraHours('${key}',this.value)" style="width:70px;padding:6px;border-radius:5px;border:0.5px solid var(--border-med);font-size:14px;text-align:center;font-family:inherit;color:var(--text);background:var(--bg);"><span style="font-size:12px;color:var(--text-hint);">ore</span></div>`;
+      }
+    }else if(totalH>lim){
+      html+=`<div class="section-label" style="margin-top:4px;">Straordinari manuali</div>`;
+      html+=`<div class="extra-row">`;
+      const active=dayData.extras.type==='straord'?`chip-active-straord`:'';
+      html+=`<button class="extra-chip ${active}" onclick="setExtra('${key}','straord')">⏰ Ore Straord. aggiuntive</button>`;
+      html+=`</div>`;
+      if(dayData.extras.type==='straord'){
+        html+=`<div class="extra-hours-input"><span style="font-size:13px;color:var(--text-sec);">Ore straord.:</span><input type="number" min="0.5" max="12" step="0.5" value="${dayData.extras.hours||0}" onchange="setExtraHours('${key}',this.value)" style="width:70px;padding:6px;border-radius:5px;border:0.5px solid var(--border-med);font-size:14px;text-align:center;font-family:inherit;color:var(--text);background:var(--bg);"><span style="font-size:12px;color:var(--text-hint);">ore</span></div>`;
+      }
+    }
+  }
+  html+=`<div class="section-label" style="margin-top:16px;">Spese</div>`;
+  html+=`<div class="expense-card"><div class="expense-grid">
+    <div class="expense-block"><label class="field-label">🍽 Pasto (€)</label><input type="number" min="0" step="0.5" class="field-input" value="${dayData.pasti||''}" onchange="setField('${key}','pasti',this.value)" placeholder="0.00" style="width:100%;"></div>
+    <div class="expense-block"><label class="field-label">📝 Note pasto</label><input type="text" class="field-input" value="${dayData.pasti_note||''}" onchange="setField('${key}','pasti_note',this.value)" placeholder="es. pranzo cliente" style="width:100%;"></div>
+    <div class="expense-block"><label class="field-label">💳 Altre spese (€)</label><input type="number" min="0" step="0.5" class="field-input" value="${dayData.spese||''}" onchange="setField('${key}','spese',this.value)" placeholder="0.00" style="width:100%;"></div>
+    <div class="expense-block"><label class="field-label">📝 Note spese</label><input type="text" class="field-input" value="${dayData.spese_note||''}" onchange="setField('${key}','spese_note',this.value)" placeholder="es. taxi, hotel..." style="width:100%;"></div>
+  </div></div>`;
+  html+=`<button class="save-btn" onclick="saveDayAndClose('${key}')">✓ Salva giornata</button>`;
+  body.innerHTML=html;
+}
+
+function renderClientCard(c,i,key){
+  const selectedHours=c.hours||0;
+  let hoursGrid='<div class="hours-grid">';
+  HOUR_OPTIONS.forEach(h=>{
+    const sel=selectedHours===h?'selected':'';
+    hoursGrid+=`<button class="hour-btn ${sel}" onclick="setClientHours('${key}',${i},${h})">${h}</button>`;
+  });
+  hoursGrid+='</div>';
+  const actVal=c.attivita||'';
+  return `<div class="client-card" id="client-card-${i}">
+    <div class="client-card-header"><span class="client-num">Lavoro ${i+1}</span><button class="remove-btn" onclick="removeClient('${key}',${i})">✕</button></div>
+    <div class="client-commessa-row">
+      <div class="field-block">
+        <div class="field-block-label">Cliente</div>
+        <input class="field-input" type="text" value="${c.name||''}" placeholder="Nome cliente" style="width:100%;" onchange="setClientField('${key}',${i},'name',this.value)">
+      </div>
+      <div class="field-block commessa-block">
+        <div class="field-block-label">Commessa</div>
+        <input class="field-input" type="text" inputmode="numeric" pattern="[0-9]*" value="${c.commessa||''}" placeholder="N." style="width:100%;" onchange="setClientField('${key}',${i},'commessa',this.value)">
+      </div>
+    </div>
+    <div class="activity-wrapper">
+      <div class="field-block-label">Attivita'</div>
+      <input class="field-input" type="text" id="act-${key}-${i}" value="${actVal}" placeholder="Descrizione attivita'..." style="width:100%;border-radius:${actVal?'var(--radius-sm)':'var(--radius-sm) var(--radius-sm) var(--radius-sm) var(--radius-sm)'};"
+        oninput="showActivitySuggestions('${key}',${i},this.value)"
+        onchange="setClientField('${key}',${i},'attivita',this.value);hideActivitySuggestions('${key}',${i})"
+        onblur="setTimeout(()=>hideActivitySuggestions('${key}',${i}),200)">
+      <div id="act-sug-${key}-${i}" class="activity-suggestions" style="display:none;"></div>
+    </div>
+    <div style="margin-top:8px;"><div style="font-size:11px;color:var(--text-hint);font-weight:500;margin-bottom:4px;">ORE LAVORATE</div>${hoursGrid}</div>
+  </div>`;
+}
+
+function addClient(key){const d=getDayData(key);d.clients.push({name:'',commessa:'',attivita:'',hours:0});state.data[key]=d;persist();renderSheetBody(key);}
+function removeClient(key,i){const d=getDayData(key);d.clients.splice(i,1);if(d.clients.length===0&&!d.extras.type&&!d.pasti&&!d.spese){delete state.data[key];}else{state.data[key]=d;}persist();renderSheetBody(key);}
+function setClientHours(key,i,h){const d=getDayData(key);d.clients[i].hours=h;state.data[key]=d;persist();renderSheetBody(key);}
+function setClientField(key,i,field,val){
+  const d=getDayData(key);
+  d.clients[i][field]=val;
+  state.data[key]=d;
+  persist();
+  if(field==='attivita'&&val.trim()) saveActivitySuggestion(val.trim());
+}
+
+function getActivitySuggestions(){
+  try { return JSON.parse(localStorage.getItem('ts_activities')||'[]'); } catch(e){ return []; }
+}
+function saveActivitySuggestion(val){
+  let list=getActivitySuggestions();
+  list=list.filter(x=>x.toLowerCase()!==val.toLowerCase());
+  list.unshift(val);
+  list=list.slice(0,30);
+  try { localStorage.setItem('ts_activities',JSON.stringify(list)); } catch(e){}
+}
+function showActivitySuggestions(key,i,val){
+  const el=document.getElementById('act-sug-'+key+'-'+i);
+  if(!el)return;
+  const all=getActivitySuggestions();
+  const matches=val.trim()===''?all:all.filter(x=>x.toLowerCase().includes(val.toLowerCase()));
+  if(!matches.length){el.style.display='none';return;}
+  el.innerHTML=matches.slice(0,8).map(m=>
+    `<div class="activity-suggestion-item" onmousedown="pickActivity('${key}',${i},'${m.replace(/'/g,"\\'")}')">
+      ${m.replace(new RegExp('('+val.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi'),'<strong>$1</strong>')}
+    </div>`
+  ).join('');
+  el.style.display='block';
+}
+function hideActivitySuggestions(key,i){
+  const el=document.getElementById('act-sug-'+key+'-'+i);
+  if(el)el.style.display='none';
+}
+function pickActivity(key,i,val){
+  const d=getDayData(key);
+  d.clients[i].attivita=val;
+  state.data[key]=d;
+  persist();
+  const inp=document.getElementById('act-'+key+'-'+i);
+  if(inp)inp.value=val;
+  hideActivitySuggestions(key,i);
+}
+function setExtra(key,type){const d=getDayData(key);if(d.extras.type===type){d.extras.type=null;d.extras.hours=0;}else{d.extras.type=type;const calc=calcDay(key);d.extras.hours=Math.max(0,state.dailyHours-calc.totalClientHours);}state.data[key]=d;persist();renderSheetBody(key);}
+function setExtraHours(key,val){const d=getDayData(key);d.extras.hours=parseFloat(val)||0;state.data[key]=d;persist();}
+function setField(key,field,val){const d=getDayData(key);d[field]=isNaN(parseFloat(val))?val:parseFloat(val);state.data[key]=d;persist();}
+function saveDayAndClose(key){
+  renderCalendar();
+  renderList();
+  if(key===todayViewKey) renderTodayPage();
+  closeDetailPanel();
+}
+
+function renderList(){
+  const y=state.currentYear,m=state.currentMonth;
+  const stats=getMonthStats();
+  document.getElementById('metric-ord').textContent=stats.totOrd+'h';
+  document.getElementById('metric-str').textContent=stats.totStr+'h';
+  document.getElementById('metric-exp').textContent='€'+stats.totSpese.toFixed(0);
+  document.getElementById('metric-fer').textContent=stats.totFerie+'h';
+  document.getElementById('metric-mal').textContent=stats.totMal+'h';
+  document.getElementById('metric-pasti').textContent='€'+stats.totPasti.toFixed(0);
+  document.getElementById('summary-month-title').textContent=`Riepilogo ${MONTHS_IT[m]} ${y}`;
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  const list=document.getElementById('day-list');
+  list.innerHTML='';
+  for(let d=1;d<=daysInMonth;d++){
+    const key=dateKey(y,m,d);
+    const dayData=getDayData(key);
+    const calc=calcDay(key);
+    if(dayData.clients.length===0&&!dayData.extras.type&&!dayData.pasti&&!dayData.spese)continue;
+    const dObj=new Date(y,m,d);
+    const dow=dObj.getDay();
+    const row=document.createElement('div');
+    row.className='day-row';
+    row.onclick=()=>openDayPanel(key);
+    const clientNames=dayData.clients.filter(c=>c.name).map(c=>c.name).join(', ')||'Nessun cliente';
+    let tags='';
+    if(calc.ord>0)tags+=`<span class="tag tag-ord">${calc.ord}h ord</span>`;
+    if(calc.str>0)tags+=`<span class="tag tag-str">${calc.str}h str</span>`;
+    if(calc.ferie>0)tags+=`<span class="tag tag-fer">Ferie ${calc.ferie}h</span>`;
+    if(calc.malattia>0)tags+=`<span class="tag tag-mal">Mal. ${calc.malattia}h</span>`;
+    if(calc.ufficio>0)tags+=`<span class="tag tag-ord">Ufficio ${calc.ufficio}h</span>`;
+    const totalH=calc.totalClientHours+(calc.ufficio||0);
+    row.innerHTML=`<div class="day-row-date"><div class="day-num">${d}</div><div class="day-name">${DAYS_IT_SHORT[dow]}</div></div><div class="day-row-info"><div class="day-row-clients">${clientNames}</div><div class="day-row-tags">${tags}</div></div><div class="day-row-hours">${totalH>0?totalH+'h':''}</div>`;
+    list.appendChild(row);
+  }
+  if(!list.children.length)list.innerHTML=`<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">Nessun dato per questo mese.<br>Tocca i giorni nel Calendario per aggiungere ore.</div></div>`;
+}
+
+function openExpensePanel(type){
+  const y=state.currentYear,m=state.currentMonth;
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  const isPasti=type==='pasti';
+  document.getElementById('expense-panel-title').textContent=isPasti?`Pasti — ${MONTHS_IT[m]} ${y}`:`Altre Spese — ${MONTHS_IT[m]} ${y}`;
+  let rows=[], total=0;
+  for(let d=1;d<=daysInMonth;d++){
+    const key=dateKey(y,m,d);
+    const dd=getDayData(key);
+    const val=isPasti?(dd.pasti||0):(dd.spese||0);
+    const note=isPasti?(dd.pasti_note||''):(dd.spese_note||'');
+    if(!val&&!note) continue;
+    rows.push({d, key, val, note});
+    total+=val;
+  }
+  const body=document.getElementById('expense-panel-body');
+  if(!rows.length){
+    body.innerHTML=`<div class="empty-state"><div class="empty-icon">${isPasti?'🍽':'💳'}</div><div class="empty-text">Nessuna ${isPasti?'spesa pasto':'spesa'} registrata<br>questo mese.</div></div>`;
+  } else {
+    body.innerHTML=rows.map(r=>{
+      const dObj=new Date(y,m,r.d);
+      const dow=dObj.getDay();
+      const amountColor=isPasti?'var(--info)':'var(--warning)';
+      return `<div class="exp-row" onclick="closeExpensePanel();openDayPanel('${r.key}')">
+        <div class="exp-date-col">
+          <div class="exp-day-num">${r.d}</div>
+          <div class="exp-day-name">${DAYS_IT_SHORT[dow]}</div>
+        </div>
+        <div class="exp-info">
+          <div style="font-size:13px;font-weight:500;">${isPasti?'Pasto':'Spesa'}</div>
+          ${r.note?`<div class="exp-note">${r.note}</div>`:'<div class="exp-note" style="color:var(--text-hint);">Nessuna nota</div>'}
+        </div>
+        <div class="exp-amount" style="color:${amountColor};">${r.val>0?'€'+r.val.toFixed(2):''}</div>
+      </div>`;
+    }).join('');
+  }
+  const footer=document.getElementById('expense-panel-footer');
+  const labelColor=isPasti?'var(--info)':'var(--warning)';
+  footer.innerHTML=`<span style="font-size:13px;color:var(--text-sec);font-weight:500;">Totale ${isPasti?'pasti':'spese'} ${MONTHS_IT[m]}</span><span style="font-size:17px;font-weight:700;color:${labelColor};">€${total.toFixed(2)}</span>`;
+  document.getElementById('expense-panel').classList.add('open');
+}
+function closeExpensePanel(){document.getElementById('expense-panel').classList.remove('open');}
+function closeExpensePanelBg(e){if(e.target===document.getElementById('expense-panel'))closeExpensePanel();}
+
+function saveSettings(){state.empName=document.getElementById('emp-name').value||'Dipendente';state.dailyHours=parseFloat(document.getElementById('daily-hours').value)||8;document.getElementById('employee-badge').textContent=state.empName;persist();updateExportFilename();}
+function updateExportFilename(){const y=state.currentYear,m=state.currentMonth;const name=(state.empName||'dipendente').replace(/\s+/g,'_');document.getElementById('export-filename').textContent=`${name}_${MONTHS_IT[m]}_${y}.xlsx`;}
+
+function renderSettings(){
+  document.getElementById('emp-name').value=state.empName;
+  document.getElementById('daily-hours').value=state.dailyHours;
+  updateExportFilename();
+  const hList=document.getElementById('holidays-list');
+  hList.innerHTML=[...IT_HOLIDAYS_2025,...IT_HOLIDAYS_2026].filter(h=>h.startsWith(state.currentYear+'')).map(h=>{
+    const [hy,hm,hd]=h.split('-');
+    const dObj=new Date(+hy,+hm-1,+hd);
+    return `<div class="settings-row"><label>${DAYS_IT_LONG[dObj.getDay()]} ${+hd} ${MONTHS_IT[+hm-1]}</label><span style="font-size:12px;color:var(--text-hint);">★ Festivo</span></div>`;
+  }).join('');
+}
+
+function exportExcel(){
+  const y=state.currentYear,m=state.currentMonth;
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  const wb=XLSX.utils.book_new();
+  const rows=[['Data','Giorno','Cliente','Commessa','Attivita','Ore Lavorate','Ore Ordinarie','Ore Straordinarie','Ferie','Malattia','Ufficio','Pasti (€)','Note Pasto','Altre Spese (€)','Note Spese']];
+  let totalOrd=0,totalStr=0,totalFerie=0,totalMal=0,totalPasti=0,totalSpese=0;
+  for(let d=1;d<=daysInMonth;d++){
+    const key=dateKey(y,m,d);
+    const dayData=getDayData(key);
+    const calc=calcDay(key);
+    const dObj=new Date(y,m,d);
+    const dow=DAYS_IT_LONG[dObj.getDay()];
+    const dateStr=`${d}/${m+1}/${y}`;
+    if(dayData.clients.length===0&&!dayData.extras.type)continue;
+    const allStraord=isAllStraord(key);
+    dayData.clients.forEach((c,ci)=>{
+      let cOrd=0,cStr=0;
+      if(allStraord){cStr=c.hours||0;}else{const totalC=calc.totalClientHours;const ratio=totalC>0?(c.hours||0)/totalC:0;cOrd=Math.round(calc.ord*ratio*2)/2;cStr=Math.round(calc.str*ratio*2)/2;}
+      rows.push([ci===0?dateStr:'',ci===0?dow:'',c.name||'',c.commessa||'',c.attivita||'',c.hours||0,ci===0?cOrd:'',ci===0?cStr:'',ci===0?(calc.ferie||''):'',ci===0?(calc.malattia||''):'',ci===0?(calc.ufficio||''):'',ci===0?(dayData.pasti||''):'',ci===0?(dayData.pasti_note||''):'',ci===0?(dayData.spese||''):'',ci===0?(dayData.spese_note||''):null]);
+      if(ci===0){totalOrd+=calc.ord;totalStr+=calc.str;totalFerie+=calc.ferie;totalMal+=calc.malattia;totalPasti+=(dayData.pasti||0);totalSpese+=(dayData.spese||0);}
+    });
+    if(dayData.clients.length===0&&dayData.extras.type){
+      rows.push([dateStr,dow,'','',0,calc.ord,calc.str,calc.ferie||'',calc.malattia||'',calc.ufficio||'',dayData.pasti||'',dayData.pasti_note||'',dayData.spese||'',dayData.spese_note||'']);
+      totalOrd+=calc.ord;totalStr+=calc.str;totalFerie+=calc.ferie;totalMal+=calc.malattia;totalPasti+=(dayData.pasti||0);totalSpese+=(dayData.spese||0);
+    }
+  }
+  rows.push([]);
+  rows.push(['TOTALI','','','','',totalOrd,totalStr,totalFerie,totalMal,'',totalPasti.toFixed(2),'',totalSpese.toFixed(2),'']);
+  rows.push(['Totale spese','','','','','','','','','','','',(totalPasti+totalSpese).toFixed(2),'']);
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:12},{wch:14},{wch:20},{wch:12},{wch:28},{wch:12},{wch:14},{wch:16},{wch:8},{wch:10},{wch:10},{wch:12},{wch:20},{wch:14},{wch:20}];
+  XLSX.utils.book_append_sheet(wb,ws,`${MONTHS_IT[m]} ${y}`);
+  const sumRows=[[`Riepilogo ${MONTHS_IT[m]} ${y} -- ${state.empName}`],[],['Ore ordinarie totali',totalOrd],['Ore straordinarie totali',totalStr],['Ore ferie',totalFerie],['Ore malattia',totalMal],['Spese pasto','€'+totalPasti.toFixed(2)],['Altre spese','€'+totalSpese.toFixed(2)],['Totale spese','€'+(totalPasti+totalSpese).toFixed(2)]];
+  const ws2=XLSX.utils.aoa_to_sheet(sumRows);
+  ws2['!cols']=[{wch:30},{wch:20}];
+  XLSX.utils.book_append_sheet(wb,ws2,'Riepilogo');
+  const name=(state.empName||'dipendente').replace(/\s+/g,'_');
+  XLSX.writeFile(wb,`${name}_${MONTHS_IT[m]}_${y}.xlsx`);
+}
+
+renderTodayPage();
+renderCalendar();
+renderSettings();
+updateExportFilename();
+// hide month nav on initial load (today tab is active)
+document.getElementById('month-nav-btns').style.display='none';
+</script>
+</body>
+</html>
