@@ -2462,7 +2462,7 @@ async function jsonBinPush(){
       method:'PUT',
       headers:{
         'Content-Type':'application/json',
-        'X-Master-Key':apiKey
+        [apiKey.startsWith('$2a$10$')?'X-Master-Key':'X-Access-Key']:apiKey
       },
       body:JSON.stringify(payload)
     });
@@ -2481,7 +2481,7 @@ async function jsonBinPull(){
   setJsonBinStatus('Scaricamento in corso...','var(--accent)');
   try{
     const resp=await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`,{
-      headers:{'X-Master-Key':apiKey}
+      headers:{[apiKey.startsWith('$2a$10$')?'X-Master-Key':'X-Access-Key']:apiKey}
     });
     if(!resp.ok) throw new Error('HTTP '+resp.status);
     const json=await resp.json();
