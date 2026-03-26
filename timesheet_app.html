@@ -184,9 +184,9 @@
     color: var(--text-hint); padding: 4px 0;
     text-transform: uppercase; letter-spacing: 0.6px;
   }
-  .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); grid-auto-rows: 1fr; gap: 4px; flex: 1; min-height: 0; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; }
   .cal-cell {
-    min-height: 0;
+    min-height: 72px;
     background: var(--surface);
     border-radius: var(--radius-sm);
     border: 1px solid var(--border);
@@ -890,11 +890,11 @@
     </div>
 
     <!-- PAGE 1: CALENDAR -->
-    <div class="page" id="page-cal" style="padding:0; overflow:hidden; position:relative; display:flex; flex-direction:column;">
-      <div id="cal-carousel" style="display:flex; width:300%; transform:translateX(-33.333%); will-change:transform; flex:1; min-height:0;">
-        <div id="cal-panel-0" style="width:33.333%; flex-shrink:0; padding:16px 16px 12px; display:flex; flex-direction:column; height:100%;"></div>
-        <div id="cal-panel-1" style="width:33.333%; flex-shrink:0; padding:16px 16px 12px; display:flex; flex-direction:column; height:100%;"></div>
-        <div id="cal-panel-2" style="width:33.333%; flex-shrink:0; padding:16px 16px 12px; display:flex; flex-direction:column; height:100%;"></div>
+    <div class="page" id="page-cal" style="padding:0; overflow:hidden; position:relative;">
+      <div id="cal-carousel" style="display:flex; width:300%; transform:translateX(-33.333%); will-change:transform;">
+        <div id="cal-panel-0" style="width:33.333%; flex-shrink:0; padding:16px 16px 20px;"></div>
+        <div id="cal-panel-1" style="width:33.333%; flex-shrink:0; padding:16px 16px 20px;"></div>
+        <div id="cal-panel-2" style="width:33.333%; flex-shrink:0; padding:16px 16px 20px;"></div>
       </div>
     </div>
 
@@ -1603,8 +1603,7 @@ function buildCalPanelHTML(py,pm,isCenter){
     '<span style="color:var(--danger)">Sab</span>',
     '<span style="color:var(--danger)">Dom</span>'];
 
-  let html=`<div style="display:flex;flex-direction:column;height:100%;gap:0;">
-  <div class="cal-header">
+  let html=`<div class="cal-header">
     <div class="cal-month">${MONTHS_IT[pm]} ${py}</div>
     <div style="font-size:12px;color:var(--text-hint);">${totOrd>0?`<span style="color:var(--text);font-weight:600;">${totOrd}h ord</span>`:''}${totOrd>0&&totStr>0?' · ':''}${totStr>0?`<span style="color:#f5a623;font-weight:600;">${totStr}h str</span>`:''}</div>
   </div>
@@ -1641,7 +1640,7 @@ function buildCalPanelHTML(py,pm,isCenter){
   for(let d=1;d<=remaining;d++)
     html+=`<div class="cal-cell other-month"><div class="cal-date">${d}</div></div>`;
 
-  html+='</div></div>';
+  html+='</div>';
   return html;
 }
 
@@ -1652,6 +1651,56 @@ function renderCalendar(){
     let pm=m+delta, py=y;
     if(pm<0){pm=11;py--;} else if(pm>11){pm=0;py++;}
     document.getElementById('cal-panel-'+i).innerHTML=buildCalPanelHTML(py,pm,delta===0);
+  });
+  fitCalendarCells();
+}
+
+function fitCalendarCells(){
+  // Calculate available height and set cell height so calendar fits without scrolling
+  requestAnimationFrame(()=>{
+    const panel=document.getElementById('cal-panel-1');
+    if(!panel) return;
+    const header=document.querySelector('.header');
+    const navTabs=document.querySelector('.nav-tabs');
+    const calHeader=panel.querySelector('.cal-header');
+    const calGridHeader=panel.querySelector('.cal-grid-header');
+    if(!header||!navTabs||!calHeader||!calGridHeader) return;
+
+    const totalH=window.innerHeight;
+    const headerH=header.offsetHeight;
+    const navH=navTabs.offsetHeight;
+    const calHeadH=calHeader.offsetHeight;
+    const calGridHeadH=calGridHeader.offsetHeight;
+    const padding=32; // top+bottom panel padding
+
+    const available=totalH - headerH - navH - calHeadH - calGridHeadH - padding - 8;
+
+    // Count rows in the grid
+    const grid=panel.querySelector('.cal-grid');
+    if(!grid) return;
+    const cells=grid.querySelectorAll('.cal-cell:not(.other-month)');
+    if(!cells.length) return;
+    // Figure out how many rows we have
+    const firstTop=cells[0].getBoundingClientRect().top;
+    let rows=1;
+    cells.forEach(cell=>{
+      if(cell.getBoundingClientRect().top > firstTop + 10) rows++;
+    });
+    // Also count other-month cells
+    const allCells=grid.querySelectorAll('.cal-cell');
+    // Get actual row count from grid
+    const gridStyle=window.getComputedStyle(grid);
+    const gridRowCount = Math.ceil(allCells.length / 7);
+
+    const gap=4;
+    const cellH=Math.floor((available - (gridRowCount-1)*gap) / gridRowCount);
+    const finalH=Math.max(60, Math.min(cellH, 130));
+
+    // Apply to all cal-grids
+    document.querySelectorAll('.cal-grid .cal-cell').forEach(el=>{
+      el.style.height=finalH+'px';
+      el.style.minHeight=finalH+'px';
+    });
   });
 }
 
