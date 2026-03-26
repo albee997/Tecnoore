@@ -1079,7 +1079,9 @@
 
 </div>
 
-<button class="fab" id="fab-btn" onclick="openTodayEdit()">+</button>
+<button class="fab" id="fab-btn" onclick="openTodayEdit()">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+</button>
 
 <div class="expense-panel" id="expense-panel" onclick="closeExpensePanelBg(event)">
   <div class="expense-sheet">
@@ -1355,6 +1357,8 @@ function pickDate(key){
 
 function removeTodayExtra(key){
   const d=getDayData(key);
+  const label=d.extras.type==='ufficio'?'Ufficio':d.extras.type==='ferie'?'Ferie':'Malattia';
+  if(!confirm(`Eliminare le ore di ${label}?`)) return;
   d.extras={type:null,hours:0};
   if(d.clients.length===0&&!d.pasti&&!d.spese){ delete state.data[key]; }
   else { state.data[key]=d; }
@@ -1365,6 +1369,8 @@ function removeTodayExtra(key){
 
 function removeTodayClient(key, idx){
   const d=getDayData(key);
+  const name=d.clients[idx]?.name||`Lavoro ${idx+1}`;
+  if(!confirm(`Eliminare "${name}"?`)) return;
   d.clients.splice(idx,1);
   if(d.clients.length===0&&!d.extras.type&&!d.pasti&&!d.spese){ delete state.data[key]; }
   else { state.data[key]=d; }
@@ -1374,6 +1380,8 @@ function removeTodayClient(key, idx){
 }
 
 function removeTodayExpense(key, field){
+  const label=field==='pasti'?'il pasto':'le altre spese';
+  if(!confirm(`Eliminare ${label}?`)) return;
   const d=getDayData(key);
   d[field]=0;
   d[field+'_note']='';
@@ -1410,7 +1418,7 @@ function buildDayPanelHTML(key, isCenter) {
   const strVal=calc.str>0?calc.str+'h':(calc.ferie>0?'Ferie':(calc.malattia>0?'Mal.':'—'));
   const expVal=totalSpese>0?'€'+totalSpese.toFixed(2):'—';
 
-  const editLink=isCenter?`<div class="today-section-link" onclick="openTodayEdit()">Modifica</div>`:'';
+  const editLink='';
   const totalWork=dayData.clients.length;
 
   let workHTML='';
@@ -1447,9 +1455,9 @@ function buildDayPanelHTML(key, isCenter) {
         workHTML+=`<div style="margin-bottom:8px;">${uffCard}</div>`;
       }
     }
-    if(dayData.pasti||dayData.spese){
-      if(dayData.pasti){
-        const pastoCard=`<div class="work-card" style="margin-bottom:0;border-radius:var(--radius);cursor:default;"><div class="work-card-info"><div class="work-card-name" style="font-size:13px;">🍽 Pasto</div>${dayData.pasti_note?`<div class="work-card-sub">${dayData.pasti_note}</div>`:''}</div><div style="font-size:14px;font-weight:700;color:var(--text);">€${dayData.pasti.toFixed(2)}</div></div>`;
+    if(dayData.pasti||dayData.pasti_note||dayData.spese||dayData.spese_note){
+      if(dayData.pasti||dayData.pasti_note){
+        const pastoCard=`<div class="work-card" style="margin-bottom:0;border-radius:var(--radius);cursor:default;"><div class="work-card-info"><div class="work-card-name" style="font-size:13px;">🍽 Pasto</div>${dayData.pasti_note?`<div class="work-card-sub">${dayData.pasti_note}</div>`:''}</div><div style="font-size:14px;font-weight:700;color:var(--text);">${dayData.pasti?'€'+dayData.pasti.toFixed(2):''}</div></div>`;
         if(isCenter){
           workHTML+=`<div class="swipe-row-wrap today-swipe" style="margin-bottom:8px;border-radius:var(--radius);">
             <div class="swipe-row-delete" style="border-radius:0 var(--radius) var(--radius) 0;" onclick="removeTodayExpense('${key}','pasti')">✕</div>
@@ -1457,8 +1465,8 @@ function buildDayPanelHTML(key, isCenter) {
           </div>`;
         } else { workHTML+=`<div style="margin-bottom:8px;">${pastoCard}</div>`; }
       }
-      if(dayData.spese){
-        const speseCard=`<div class="work-card" style="margin-bottom:0;border-radius:var(--radius);cursor:default;"><div class="work-card-info"><div class="work-card-name" style="font-size:13px;">💳 Altre spese</div>${dayData.spese_note?`<div class="work-card-sub">${dayData.spese_note}</div>`:''}</div><div style="font-size:14px;font-weight:700;color:var(--text);">€${dayData.spese.toFixed(2)}</div></div>`;
+      if(dayData.spese||dayData.spese_note){
+        const speseCard=`<div class="work-card" style="margin-bottom:0;border-radius:var(--radius);cursor:default;"><div class="work-card-info"><div class="work-card-name" style="font-size:13px;">💳 Altre spese</div>${dayData.spese_note?`<div class="work-card-sub">${dayData.spese_note}</div>`:''}</div><div style="font-size:14px;font-weight:700;color:var(--text);">${dayData.spese?'€'+dayData.spese.toFixed(2):''}</div></div>`;
         if(isCenter){
           workHTML+=`<div class="swipe-row-wrap today-swipe" style="margin-bottom:8px;border-radius:var(--radius);">
             <div class="swipe-row-delete" style="border-radius:0 var(--radius) var(--radius) 0;" onclick="removeTodayExpense('${key}','spese')">✕</div>
@@ -1726,6 +1734,14 @@ function renderSheetBody(key){
         html+=`<div class="extra-hours-input"><span style="font-size:13px;color:var(--text-sec);">Ore straord.:</span><input type="number" min="0.5" max="12" step="0.5" value="${dayData.extras.hours||0}" onchange="setExtraHours('${key}',this.value)" style="width:70px;padding:6px;border-radius:5px;border:0.5px solid var(--border-med);font-size:14px;text-align:center;font-family:inherit;color:var(--text);background:var(--bg);"><span style="font-size:12px;color:var(--text-hint);">ore</span></div>`;
       }
     }
+  } else {
+    // allStraord day (saturday/sunday/holiday): still allow Ufficio
+    if(!dayData.extras.type){
+      html+=`<div class="section-label" style="margin-top:4px;">Ore aggiuntive</div>`;
+      html+=`<div class="extra-row">`;
+      html+=`<button class="extra-chip" onclick="setExtra('${key}','ufficio')">🏢 Ufficio</button>`;
+      html+=`</div>`;
+    }
   }
   html+=`<div class="section-label" style="margin-top:16px;">Spese</div>`;
   html+=`<div class="expense-card"><div class="expense-grid">
@@ -1795,8 +1811,38 @@ function renderClientCard(c,i,key){
 }
 
 function addClient(key){const d=getDayData(key);d.clients.push({name:'',commessa:'',attivita:'',hours:0});state.data[key]=d;persist();renderSheetBody(key);}
-function removeClient(key,i){const d=getDayData(key);d.clients.splice(i,1);if(d.clients.length===0&&!d.extras.type&&!d.pasti&&!d.spese){delete state.data[key];}else{state.data[key]=d;}persist();renderSheetBody(key);}
-function setClientHours(key,i,h){const d=getDayData(key);d.clients[i].hours=h;state.data[key]=d;persist();renderSheetBody(key);}
+function removeClient(key,i){
+  const d=getDayData(key);
+  const name=d.clients[i]?.name||`Lavoro ${i+1}`;
+  if(!confirm(`Eliminare "${name}"?`)) return;
+  d.clients.splice(i,1);
+  if(d.clients.length===0&&!d.extras.type&&!d.pasti&&!d.spese){delete state.data[key];}else{state.data[key]=d;}
+  persist();renderSheetBody(key);
+}
+function setClientHours(key,i,h){
+  const d=getDayData(key);
+  d.clients[i].hours=h;
+  state.data[key]=d;
+  persist();
+  // Update only the summary strip to avoid losing focus on inputs
+  updateDaySummary(key);
+}
+
+function updateDaySummary(key){
+  const calc=calcDay(key);
+  const allStraord=isAllStraord(key);
+  const strip=document.getElementById('day-summary');
+  if(!strip) return;
+  let html='';
+  html+=`<div class="sum-item"><div class="sum-val" style="color:var(--text);">${calc.totalClientHours}h</div><div class="sum-lbl">Clienti</div></div>`;
+  if(!allStraord){
+    html+=`<div class="sum-item"><div class="sum-val" style="color:var(--text);">${calc.ord}h</div><div class="sum-lbl">Ordinarie</div></div>`;
+    html+=`<div class="sum-item"><div class="sum-val" style="color:#f5a623;">${calc.str}h</div><div class="sum-lbl">Straord.</div></div>`;
+  }else{
+    html+=`<div class="sum-item"><div class="sum-val" style="color:#f5a623;">${calc.totalClientHours}h</div><div class="sum-lbl">Tutte straord.</div></div>`;
+  }
+  strip.innerHTML=html;
+}
 function setClientField(key,i,field,val){
   const d=getDayData(key);
   d.clients[i][field]=val;
@@ -1844,6 +1890,8 @@ function pickActivity(key,i,val){
 function setExtra(key,type){
   const d=getDayData(key);
   if(d.extras.type===type){
+    const labels={ufficio:'Ufficio',ferie:'Ferie',malattia:'Malattia'};
+    if(!confirm(`Eliminare le ore di ${labels[type]||type}?`)) return;
     d.extras.type=null; d.extras.hours=0;
   } else {
     d.extras.type=type;
@@ -2067,6 +2115,10 @@ function setupSwipeToDelete(){
 }
 
 function deleteDayData(key){
+  const {y,m,d}=parseKey(key);
+  const dObj=new Date(y,m,d);
+  const label=dObj.toLocaleDateString('it-IT',{weekday:'short',day:'numeric',month:'short'});
+  if(!confirm(`Eliminare tutti i dati del ${label}?`)) return;
   if(state.data[key]){ delete state.data[key]; persist(); }
   renderList(); renderCalendar();
 }
